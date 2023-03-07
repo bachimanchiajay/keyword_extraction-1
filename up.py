@@ -1,32 +1,34 @@
 import fitz
-import spacy
-
-# Load the spacy model
-nlp = spacy.load('en_core_web_sm')
 
 # Load the PDF document
 doc = fitz.open('path/to/pdf/file.pdf')
 
-# Define the keyword to search for
-keyword = 'Your Keyword'
+# Define the text to search for
+text_to_search = 'Your Text'
 
-# Define the field to extract data for
-field = 'Your Field Name'
+# Define the right-side region
+right_region = [0.5, 0, 1, 1]
 
 # Iterate over each page in the document
 for page_number in range(doc.page_count):
-    # Get the page text
-    page_text = doc[page_number].get_text()
+    # Get the page object
+    page = doc[page_number]
 
-    # Create a Spacy document from the page text
-    doc_spacy = nlp(page_text)
+    # Search for the text
+    search_results = page.search_for(text_to_search)
 
-    # Iterate over each sentence in the Spacy document
-    for sent in doc_spacy.sents:
-        # Check if the keyword is in the sentence
-        if keyword in sent.text.lower():
-            # Get the field value
-            field_value = doc[page_number].getField(field)
+    # Iterate over each search result
+    for search_result in search_results:
+        # Check if the search result is in the right-side region
+        if search_result[0] > page.MediaBox[2]*right_region[0] and \
+           search_result[1] > page.MediaBox[3]*right_region[1] and \
+           search_result[2] > page.MediaBox[2]*right_region[2] and \
+           search_result[3] > page.MediaBox[3]*right_region[3]:
+            # Get the text in the right-side region
+            right_text = page.get_textbox([page.MediaBox[2]*right_region[0],
+                                           page.MediaBox[3]*right_region[1],
+                                           page.MediaBox[2]*right_region[2],
+                                           page.MediaBox[3]*right_region[3]])
 
-            # Print the field value
-            print(f'{field}: {field_value}')
+            # Print the text in the right-side region
+            print(right_text)
