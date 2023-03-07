@@ -1,20 +1,34 @@
-import PyPDF2
+import fitz
+import re
 
-# Define the word to search for
-word_to_search = 'Your Word'
+# Define the keyword to search for
+keyword = 'Your Keyword'
+
+# Compile the regular expression pattern
+regex = re.compile(keyword)
 
 # Open the PDF file
-with open('path/to/pdf/file.pdf', 'rb') as f:
-    # Create a PDF reader object
-    reader = PyPDF2.PdfReader(f)
+doc = fitz.open('path/to/pdf/file.pdf')
 
-    # Iterate over each page in the PDF file
-    for page in reader.pages:
-        # Get the page text
-        page_text = page.extract_text()
+# Iterate over each page in the document
+for page_number in range(doc.page_count):
+    # Get the page object
+    page = doc[page_number]
 
-        # Check if the word is in the page text
-        if word_to_search in page_text:
-            # Print the page number and location of the word
-            print(f'Word found on page {page.page_number} at location {page_text.index(word_to_search)}')
+    # Search for the keyword using the regular expression
+    matches = regex.finditer(page.get_text())
+
+    # Iterate over each match
+    for match in matches:
+        # Get the rectangle of the match
+        rect = match.group(0).strip('\n').replace('\n', ' ').replace('\r', ' ')
+        rect = page.search_for(rect)[0]
+
+        # Get the text region of the keyword
+        text_region = fitz.Rect(rect.x0, rect.y0, rect.x1, rect.y1 + 10)
+        text = page.get_text("text", clip=text_region)
+
+        # Print the page number, location, and text region of the match
+        print(f'Page {page_number+1}: {match.start()} - {match.end()}\n{rect}\n{text}')
+
 
