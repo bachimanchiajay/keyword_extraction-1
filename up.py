@@ -57,3 +57,35 @@ for line in lines:
 print(form_data)
 
 
+import fitz
+from layoutparser import OCR, Document
+
+# Load the PDF file using PyMuPDF
+pdf_path = 'path/to/pdf/file.pdf'
+doc = fitz.open(pdf_path)
+
+# Extract text and layout information using OCR
+ocr_agent = OCR()
+layout = ocr_agent.detect(doc, return_response=True)
+
+# Convert the layout information to a LayoutParser document
+document = Document(layout=layout, page_size=(doc[0].rect.width, doc[0].rect.height))
+
+# Print the text and layout information for each page in the document
+for page_number in range(doc.page_count):
+    # Get the page object
+    page = doc[page_number]
+
+    # Get the text on the page using OCR
+    text = ocr_agent.detect(page)
+
+    # Add the text to the LayoutParser document
+    page_layout = layout[page_number]
+    block = page_layout['layout']
+    text_block = block.filter_blocks(lambda b, _: b['type'] == 'text')
+    text_block.set(text=text, type='text')
+
+    # Print the text and layout information for the page
+    print(f'Page {page_number + 1}:')
+    print(f'Text: {text}')
+    print(f'Layout: {page_layout}')
