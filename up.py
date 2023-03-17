@@ -129,3 +129,17 @@ for page_number in range(doc.page_count):
     print(f'Page {page_number + 1}:')
     print(f'Text: {text}')
     print(f'Layout: {page_layout}')
+
+    
+    from pdf2image import convert_from_path
+
+pdf_path = '/path/to/pdf/file.pdf'
+first_page = 1
+last_page = 3
+image_path_prefix = '/path/to/image/file'
+
+images = convert_from_path(pdf_path, first_page=first_page, last_page=last_page)
+
+for i, image in enumerate(images):
+    image_path = f"{image_path_prefix}_{i+1}.jpg"
+    image.save(image_path, 'JPEG')
