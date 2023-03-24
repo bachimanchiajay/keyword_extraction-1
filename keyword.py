@@ -107,3 +107,42 @@ coordinates = [
 extracted_texts = extract_text_from_coordinates(image_file_path, coordinates)
 print(extracted_texts)
 
+import boto3
+import layoutparser as lp
+from PIL import Image
+
+# Load your custom-trained Layout Parser model
+model_checkpoint = "YOUR_MODEL_CHECKPOINT"
+config_file = "YOUR_CONFIG_FILE"
+model = lp.Detectron2LayoutModel(config_path=config_file,
+                                  model_path=model_checkpoint,
+                                  label_map={0: "Text"})
+
+def extract_text(image_file_path):
+    # Initialize the Textract client
+    textract_client = boto3.client("textract", region_name="YOUR_AWS_REGION")
+
+    # Read the image file
+    with open(image_file_path, "rb") as image_file:
+        image_data = image_file.read()
+
+    # Analyze the document using Textract
+    response = textract_client.analyze_document(Document={"Bytes": image_data}, FeatureTypes=["TABLES", "FORMS"])
+
+    # Load the image for Layout Parser
+    image = Image.open(image_file_path)
+
+    # Predict the layout using your custom-trained model
+    layout = model.detect(image)
+
+    # Extract raw text
+    raw_text = lp.Layout([t for t in layout if t.type == "Text"]).get_text()
+    
+    return raw_text
+
+# Replace "YOUR_IMAGE_FILE_PATH" with the path to your image file
+image_file_path = "YOUR_IMAGE_FILE_PATH"
+
+raw_text = extract_text(image_file_path)
+print(raw_text)
+
