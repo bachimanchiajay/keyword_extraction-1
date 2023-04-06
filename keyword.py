@@ -54,3 +54,29 @@ for i, row in region_df.iterrows():
     print(f"Text extracted from region {i+1}:")
     print(raw_text)
     print()
+    
+    # Specify the bucket and folder
+bucket_name = 'your-bucket-name'
+folder_name = 'your-folder-name'
+
+# List all objects in the folder
+objects = s3.list_objects_v2(Bucket=bucket_name, Prefix=folder_name)
+
+# Iterate over the objects
+for obj in objects['Contents']:
+    key = obj['Key']
+    if key.lower().endswith('.pdf'):  # Check if the object is a PDF file
+        # Download the PDF file into memory
+        response = s3.get_object(Bucket=bucket_name, Key=key)
+        file_data = response['Body'].read()
+
+        # Read the PDF content using PyPDF2
+        with BytesIO(file_data) as file:
+            pdf_reader = PyPDF2.PdfFileReader(file)
+
+            # Iterate over the pages and extract the text
+            for page_num in range(pdf_reader.numPages):
+                page = pdf_reader.getPage(page_num)
+                text = page.extractText()
+                print(f"Content of {key} - Page {page_num + 1}:\n{text}\n")
+
