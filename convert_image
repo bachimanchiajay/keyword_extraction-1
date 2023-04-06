@@ -1,0 +1,35 @@
+import boto3
+from io import BytesIO
+from pdf2image import convert_from_bytes
+
+# Initialize the S3 resource and client
+s3 = boto3.resource('s3')
+s3_client = boto3.client('s3')
+def convert_pdf_to_images(bucket_name, object_key):
+    # Get the object
+    obj = s3.Object(bucket_name, object_key)
+
+    # Download the PDF file into memory
+    response = obj.get()
+    file_data = response['Body'].read()
+
+    # Convert the PDF file to images using pdf2image
+    images = convert_from_bytes(file_data)
+
+    # Save the images to your local environment
+    for i, image in enumerate(images):
+        image.save(f'{object_key}_page_{i + 1}.png', 'PNG')
+# Specify the bucket and folder
+bucket_name = 'your-bucket-name'
+folder_name = 'your-folder-name'
+
+# Iterate through the objects in the folder
+paginator = s3_client.get_paginator('list_objects_v2')
+for page in paginator.paginate(Bucket=bucket_name, Prefix=folder_name):
+    for obj in page.get('Contents', []):
+        object_key = obj['Key']
+        
+        # Check if the object is a PDF file
+        if object_key.lower().endswith('.pdf'):
+            # Convert the PDF file to images
+            convert_pdf_to_images(bucket_name, object_key)
