@@ -81,4 +81,5 @@ filtered_rows = df[df['key'] == 'insured name']
 combined_coordinates = filtered_rows['coordinates'].tolist()
 
 print(combined_coordinates)
+df['coordinates'] = df['coordinates'].apply(lambda x: [tuple(coord) for coord in x])
 
