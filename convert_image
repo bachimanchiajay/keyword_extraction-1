@@ -62,4 +62,23 @@ print(merged_bbox)
 
 
         
+import pandas as pd
+
+# Data as a list of dictionaries
+data = [
+    {'key': 'insured name', 'coordinates': [123.4, 443.4, 355.7, 354.6]},
+    {'key': 'insured name', 'coordinates': [121.4, 487.4, 397.5, 343.6]},
+    {'key': 'insured name value', 'coordinates': [142.4, 447.4, 396.5, 367.6]},
+]
+
+# Create DataFrame from the data
+df = pd.DataFrame(data)
+
+# Filter the DataFrame based on the key 'insured name'
+filtered_rows = df[df['key'] == 'insured name']
+
+# Extract the coordinates as nested lists
+combined_coordinates = filtered_rows['coordinates'].tolist()
+
+print(combined_coordinates)
 
