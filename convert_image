@@ -83,3 +83,34 @@ combined_coordinates = filtered_rows['coordinates'].tolist()
 print(combined_coordinates)
 df['coordinates'] = df['coordinates'].apply(lambda x: [tuple(coord) for coord in x])
 
+
+from PIL import Image, ImageDraw
+
+def merge_bounding_boxes(boxes):
+    if not boxes:
+        return None
+
+    left = min(box[0] for box in boxes)
+    top = min(box[1] for box in boxes)
+    right = max(box[2] for box in boxes)
+    bottom = max(box[3] for box in boxes)
+
+    return (left, top, right, bottom)
+
+image_path = 'path/to/your/image.jpg'
+image = Image.open(image_path)
+
+# List of bounding boxes to be merged
+bounding_boxes = [
+    (50, 50, 200, 200),
+    (100, 100, 250, 250),
+]
+
+merged_bounding_box = merge_bounding_boxes(bounding_boxes)
+
+draw = ImageDraw.Draw(image)
+draw.rectangle(merged_bounding_box, outline='red', width=3)
+
+image.save('path/to/save/your/output_image.jpg')
+# image.show()
+
