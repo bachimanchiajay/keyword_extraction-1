@@ -1,3 +1,95 @@
+from flask import Flask, request
+import openai
+import json
+
+# Set up Flask app and OpenAI API key
+app = Flask(__name__)
+openai.api_key = "YOUR_API_KEY_HERE"
+
+# Define route for ChatGPT endpoint
+@app.route("/chat", methods=["POST"])
+def chat():
+    # Get input from request body
+    input_text = request.get_data(as_text=True)
+
+    # Use OpenAI's API to generate a response
+    response = openai.Completion.create(
+        engine="davinci",
+        prompt=input_text,
+        max_tokens=1024,
+        n=1,
+        stop=None,
+        temperature=0.7,
+    )
+
+    # Extract response text from OpenAI API response
+    response_text = response.choices[0].text.strip()
+
+    # Return response as JSON
+    return json.dumps({"response": response_text})
+
+# Run the app
+if __name__ == "__main__":
+    app.run(debug=True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import boto3
 import io
 import pandas as pd
