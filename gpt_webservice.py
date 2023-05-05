@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import openai
 app = FastAPI()
-openai.api_key = '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'
+openai.api_key = "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"
 class ChatInput(BaseModel):
     input_text: str
 class ChatOutput(BaseModel):
