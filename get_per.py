@@ -15,7 +15,8 @@ def find_string_and_percentage(response, search_string):
                 search_string_box = item["Geometry"]["BoundingBox"]
             elif '%' in text and search_string_box is not None:
                 percentage_box = item["Geometry"]["BoundingBox"]
-                if percentage_box["Left"] < search_string_box["Left"] + 0.1:  # Adjust this value based on your requirements
+                # Check if percentage is near the search string horizontally and on the same line or below
+                if search_string_box["Top"] <= percentage_box["Top"] and search_string_box["Left"] < percentage_box["Left"] <= search_string_box["Left"] + 0.1:
                     percentages_near_search.append((text, percentage_box))
 
     return percentages_near_search
@@ -27,3 +28,4 @@ percentages = find_string_and_percentage(response, search_string)
 
 for percentage in percentages:
     print(f"Found '{percentage[0]}' at coordinates {percentage[1]}")
+
