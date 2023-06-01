@@ -17,6 +17,7 @@ def find_string_and_percentage_and_dates(response, search_string, page):
     dates_near_search = []
     current_page = 0
     date_pattern = r"\b(0?[1-9]|[12][0-9]|3[01])/(0?[1-9]|1[0-2])/(19|20)\d\d\b"
+    percentage_pattern = r"\b\d{1,3}\.\d{1,2}%\b"
     for item in response["Blocks"]:
         if item["BlockType"] == "PAGE":
             current_page += 1
@@ -24,15 +25,18 @@ def find_string_and_percentage_and_dates(response, search_string, page):
             text = item.get("Text", "")
             if search_string in text:
                 search_string_box = item["Geometry"]["BoundingBox"]
-            elif '%' in text and search_string_box is not None:
-                percentage_box = item["Geometry"]["BoundingBox"]
-                if search_string_box["Top"] <= percentage_box["Top"] and search_string_box["Left"] < percentage_box["Left"] <= search_string_box["Left"] + 0.1:
-                    percentages_near_search.append((text, percentage_box))
             else:
-                matches = re.findall(date_pattern, text)
-                if matches:
-                    date_box = item["Geometry"]["BoundingBox"]
-                    dates_near_search.append((matches, date_box))
+                percentage_matches = re.findall(percentage_pattern, text)
+                if percentage_matches and search_string_box is not None:
+                    percentage_box = item["Geometry"]["BoundingBox"]
+                    # If the percentage_box is to the left side of the search_string_box
+                    if search_string_box["Top"] <= percentage_box["Top"] and percentage_box["Left"] + percentage_box["Width"] <= search_string_box["Left"]:
+                        percentages_near_search.append((percentage_matches, percentage_box))
+                else:
+                    date_matches = re.findall(date_pattern, text)
+                    if date_matches:
+                        date_box = item["Geometry"]["BoundingBox"]
+                        dates_near_search.append((date_matches, date_box))
 
     return percentages_near_search, dates_near_search
 
