@@ -5,11 +5,17 @@ def load_textract_json(json_file):
         data = json.load(f)
     return data
 
-def find_string_and_percentage(response, search_string):
+def add_spaces(string):
+    return ' '.join(string)
+
+def find_string_and_percentage(response, search_string, page):
     search_string_box = None
     percentages_near_search = []
+    current_page = 0
     for item in response["Blocks"]:
-        if item["BlockType"] == "LINE":
+        if item["BlockType"] == "PAGE":
+            current_page += 1
+        if item["BlockType"] == "LINE" and current_page == page:
             text = item["Text"]
             if search_string in text:
                 search_string_box = item["Geometry"]["BoundingBox"]
@@ -22,10 +28,11 @@ def find_string_and_percentage(response, search_string):
     return percentages_near_search
 
 json_file = "<your_json_file_path>"
-search_string = "<your_search_string>"
+search_string = "hello"
+search_string = add_spaces(search_string)  # add spaces to the search string
+page = 2  # The page number you want to search
 response = load_textract_json(json_file)
-percentages = find_string_and_percentage(response, search_string)
+percentages = find_string_and_percentage(response, search_string, page)
 
 for percentage in percentages:
     print(f"Found '{percentage[0]}' at coordinates {percentage[1]}")
-
