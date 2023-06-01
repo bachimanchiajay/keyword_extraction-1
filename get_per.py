@@ -88,3 +88,59 @@ if page is not None:
     # ... further processing of the page data
 else:
     print(f"Page number {page_number} not found in the Textract JSON file.")
+    
+    
+    
+import json
+
+def extract_left_text_from_textract_json(textract_json_path, search_string):
+    # Load the Textract JSON file
+    with open(textract_json_path, 'r') as json_file:
+        textract_data = json.load(json_file)
+
+    # Extract the text blocks from the Textract JSON
+    text_blocks = [block for block in textract_data['Blocks'] if block['BlockType'] == 'WORD']
+
+    # Find the block with the search string
+    search_block = next((block for block in text_blocks if block['Text'] == search_string), None)
+
+    if search_block is not None:
+        # Get the bounding box coordinates of the search block
+        left = search_block['Geometry']['BoundingBox']['Left']
+        top = search_block['Geometry']['BoundingBox']['Top']
+        width = search_block['Geometry']['BoundingBox']['Width']
+        height = search_block['Geometry']['BoundingBox']['Height']
+
+        # Calculate the coordinates for the left text
+        left_text_left = left - width  # Adjust this value based on your requirements
+        left_text_top = top
+        left_text_width = width
+        left_text_height = height
+
+        # Find the text blocks within the left text coordinates
+        left_text_blocks = [block for block in text_blocks if
+                            block['Geometry']['BoundingBox']['Left'] >= left_text_left and
+                            block['Geometry']['BoundingBox']['Top'] >= left_text_top and
+                            block['Geometry']['BoundingBox']['Left'] <= left_text_left + left_text_width and
+                            block['Geometry']['BoundingBox']['Top'] <= left_text_top + left_text_height]
+
+        # Extract the left text data
+        left_text_data = ' '.join([block['Text'] for block in left_text_blocks])
+        return left_text_data
+    else:
+        return None
+
+# Path to the Textract JSON file
+textract_json_path = '/path/to/textract.json'
+
+# Search string to find the index and extract the left text data
+search_string = 'your search string'
+
+# Extract the left text data from the search string coordinates
+left_text_data = extract_left_text_from_textract_json(textract_json_path, search_string)
+
+if left_text_data is not None:
+    print(f"Left Text Data: {left_text_data}")
+else:
+    print(f"Search string '{search_string}' not found in the Textract JSON file.")
+
