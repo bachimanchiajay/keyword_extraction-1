@@ -40,3 +40,19 @@ percentages = find_string_and_percentage(response, search_string, page)
 
 for percentage in percentages:
     print(f"Found '{percentage[0]}' at coordinates {percentage[1]}")
+    
+    
+import re
+
+# The regular expression pattern for dd/m/yyyy and dd/mm/yyyy
+pattern = r"\b(0?[1-9]|[12][0-9]|3[01])/(0?[1-9]|1[0-2])/(19|20)\d\d\b"
+
+text = """
+    This is some text with a date 12/1/2023 embedded in it.
+    And here's another date: 31/05/2023.
+"""
+
+matches = re.findall(pattern, text)
+for match in matches:
+    print("/".join(match))
+
