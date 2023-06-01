@@ -55,3 +55,36 @@ for percentage in percentages:
 
 for date in dates:
     print(f"Found '{date[0]}' at coordinates {date[1]}")
+
+    
+    import json
+
+def get_page_from_textract_json(textract_json_path, page_number):
+    # Load the Textract JSON file
+    with open(textract_json_path, 'r') as json_file:
+        textract_data = json.load(json_file)
+
+    # Get the desired page number
+    pages = textract_data['Blocks']
+    page_blocks = [block for block in pages if block['BlockType'] == 'PAGE']
+    if page_number <= len(page_blocks):
+        desired_page = page_blocks[page_number - 1]
+        return desired_page
+    else:
+        return None
+
+# Path to the Textract JSON file
+textract_json_path = '/path/to/textract.json'
+
+# Page number to extract (e.g., 1, 2, 3)
+page_number = 2
+
+# Get the desired page from the Textract JSON file
+page = get_page_from_textract_json(textract_json_path, page_number)
+
+if page is not None:
+    # Process the desired page
+    print(f"Processing page number {page_number}")
+    # ... further processing of the page data
+else:
+    print(f"Page number {page_number} not found in the Textract JSON file.")
