@@ -1,5 +1,6 @@
 import json
 import boto3
+import re
 
 def load_textract_json(bucket_name, file_name):
     s3 = boto3.client('s3')
@@ -10,10 +11,12 @@ def load_textract_json(bucket_name, file_name):
 def add_spaces(string):
     return ' '.join(string)
 
-def find_string_and_percentage(response, search_string, page):
+def find_string_and_percentage_and_dates(response, search_string, page):
     search_string_box = None
     percentages_near_search = []
+    dates_near_search = []
     current_page = 0
+    date_pattern = r"\b(0?[1-9]|[12][0-9]|3[01])/(0?[1-9]|1[0-2])/(19|20)\d\d\b"
     for item in response["Blocks"]:
         if item["BlockType"] == "PAGE":
             current_page += 1
@@ -25,8 +28,13 @@ def find_string_and_percentage(response, search_string, page):
                 percentage_box = item["Geometry"]["BoundingBox"]
                 if search_string_box["Top"] <= percentage_box["Top"] and search_string_box["Left"] < percentage_box["Left"] <= search_string_box["Left"] + 0.1:
                     percentages_near_search.append((text, percentage_box))
+            else:
+                matches = re.findall(date_pattern, text)
+                if matches:
+                    date_box = item["Geometry"]["BoundingBox"]
+                    dates_near_search.append((matches, date_box))
 
-    return percentages_near_search
+    return percentages_near_search, dates_near_search
 
 bucket_name = '<your_bucket_name>'  # replace with your bucket name
 file_name = '<your_file_name>'  # replace with your file name
@@ -36,23 +44,10 @@ search_string = add_spaces(search_string)
 page = 2  # The page number you want to search
 
 response = load_textract_json(bucket_name, file_name)
-percentages = find_string_and_percentage(response, search_string, page)
+percentages, dates = find_string_and_percentage_and_dates(response, search_string, page)
 
 for percentage in percentages:
     print(f"Found '{percentage[0]}' at coordinates {percentage[1]}")
-    
-    
-import re
 
-# The regular expression pattern for dd/m/yyyy and dd/mm/yyyy
-pattern = r"\b(0?[1-9]|[12][0-9]|3[01])/(0?[1-9]|1[0-2])/(19|20)\d\d\b"
-
-text = """
-    This is some text with a date 12/1/2023 embedded in it.
-    And here's another date: 31/05/2023.
-"""
-
-matches = re.findall(pattern, text)
-for match in matches:
-    print("/".join(match))
-
+for date in dates:
+    print(f"Found '{date[0]}' at coordinates {date[1]}")
