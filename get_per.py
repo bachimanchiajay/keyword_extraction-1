@@ -1,4 +1,45 @@
 import json
+import re
+
+def get_left_and_above_left_text(file_path, x, y, w, h):
+    with open(file_path, 'r') as f:
+        textract_output = json.load(f)
+
+    left_texts = []
+    above_left_texts = []
+
+    for block in textract_output['Blocks']:
+        if block['BlockType'] in ['WORD', 'LINE']:
+            left = block['Geometry']['BoundingBox']['Left']
+            top = block['Geometry']['BoundingBox']['Top']
+
+            if left < x and (y <= top <= y + h):
+                left_texts.append(block['Text'])
+
+            if left < x and top < y:
+                above_left_texts.append(block['Text'])
+
+    # Find all percentage strings in the left_texts and above_left_texts
+    percentage_pattern = r'\b\d{1,3}(?:\.\d{1,2})?%\b'
+    left_percentages = [re.findall(percentage_pattern, text) for text in left_texts]
+    above_left_percentages = [re.findall(percentage_pattern, text) for text in above_left_texts]
+
+    # Flatten the lists of lists
+    left_percentages = [percentage for sublist in left_percentages for percentage in sublist]
+    above_left_percentages = [percentage for sublist in above_left_percentages for percentage in sublist]
+
+    return left_percentages, above_left_percentages
+
+file_path = 'your_json_file.json'  # Replace this with your file path
+x, y, w, h = 0.5, 0.5, 0.1, 0.1  # Replace this with your x, y, w, h
+
+left_percentages, above_left_percentages = get_left_and_above_left_text(file_path, x, y, w, h)
+print(f'Percentage texts to the left of the region: {left_percentages}')
+print(f'Percentage texts above and to the left of the region: {above_left_percentages}')
+
+
+
+import json
 
 def get_text_near_search_string(file_path, search_string, page_num, left_percent, above_percent, below_percent):
     with open(file_path, 'r') as f:
