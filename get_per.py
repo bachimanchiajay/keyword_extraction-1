@@ -1,6 +1,61 @@
 import json
 import re
 
+def get_surrounding_text(file_path, x, y, w, h):
+    with open(file_path, 'r') as f:
+        textract_output = json.load(f)
+
+    left_texts, right_texts, top_texts, bottom_texts = [], [], [], []
+    percentage_pattern = r'\b\d{1,3}(?:\.\d{1,2})?%\b'
+
+    for block in textract_output['Blocks']:
+        if block['BlockType'] in ['WORD', 'LINE']:
+            left = block['Geometry']['BoundingBox']['Left']
+            top = block['Geometry']['BoundingBox']['Top']
+            width = block['Geometry']['BoundingBox']['Width']
+            height = block['Geometry']['BoundingBox']['Height']
+
+            if left < x and (y <= top <= y + h):
+                left_texts.append(block['Text'])
+
+            if left + width > x + w and (y <= top <= y + h):
+                right_texts.append(block['Text'])
+
+            if top < y and (x <= left <= x + w):
+                top_texts.append(block['Text'])
+
+            if top + height > y + h and (x <= left <= x + w):
+                bottom_texts.append(block['Text'])
+
+    left_percentages = [re.findall(percentage_pattern, text) for text in left_texts]
+    right_percentages = [re.findall(percentage_pattern, text) for text in right_texts]
+    top_percentages = [re.findall(percentage_pattern, text) for text in top_texts]
+    bottom_percentages = [re.findall(percentage_pattern, text) for text in bottom_texts]
+
+    # Flatten the lists of lists
+    left_percentages = [percentage for sublist in left_percentages for percentage in sublist]
+    right_percentages = [percentage for sublist in right_percentages for percentage in sublist]
+    top_percentages = [percentage for sublist in top_percentages for percentage in sublist]
+    bottom_percentages = [percentage for sublist in bottom_percentages for percentage in sublist]
+
+    return (left_texts, left_percentages), (right_texts, right_percentages), (top_texts, top_percentages), (bottom_texts, bottom_percentages)
+
+file_path = 'your_json_file.json'  # Replace this with your file path
+x, y, w, h = 0.5, 0.5, 0.1, 0.1  # Replace this with your x, y, w, h
+
+(left_texts, left_percentages), (right_texts, right_percentages), (top_texts, top_percentages), (bottom_texts, bottom_percentages) = get_surrounding_text(file_path, x, y, w, h)
+print(f'Texts to the left of the region: {left_texts}, Percentages: {left_percentages}')
+print(f'Texts to the right of the region: {right_texts}, Percentages: {right_percentages}')
+print(f'Texts above the region: {top_texts}, Percentages: {top_percentages}')
+print(f'Texts below the region: {bottom_texts}, Percentages: {bottom_percentages}')
+
+
+
+
+
+import json
+import re
+
 def get_left_and_above_left_text(file_path, x, y, w, h):
     with open(file_path, 'r') as f:
         textract_output = json.load(f)
