@@ -1,5 +1,45 @@
 import json
 
+def get_text_in_range(file_path, left_range, above_range, x, y, w, h):
+    with open(file_path, 'r') as f:
+        textract_output = json.load(f)
+
+    all_texts = []
+
+    for block in textract_output['Blocks']:
+        if block['BlockType'] in ['WORD', 'LINE']:
+            all_texts.append(block)
+
+    # Filter out only the texts that are within the specified range from the left and top and within the specified rectangle
+    left_texts = [text_block['Text'] for text_block in all_texts
+                  if text_block['Geometry']['BoundingBox']['Left'] < left_range 
+                  and text_block['Geometry']['BoundingBox']['Left'] >= x
+                  and text_block['Geometry']['BoundingBox']['Left'] <= x + w]
+
+    above_texts = [text_block['Text'] for text_block in all_texts
+                   if text_block['Geometry']['BoundingBox']['Top'] < above_range 
+                   and text_block['Geometry']['BoundingBox']['Top'] >= y
+                   and text_block['Geometry']['BoundingBox']['Top'] <= y + h]
+
+    return ' '.join(left_texts), ' '.join(above_texts)
+
+file_path = 'your_json_file.json'  # Replace this with your file path
+x = 0.2  # Replace these with your rectangle coordinates
+y = 0.2
+w = 0.5
+h = 0.5
+
+left_text, above_text = get_text_in_range(file_path, 0.3, 0.2, x, y, w, h)
+print(f'Text in the left 30% of the document: {left_text}')
+print(f'Text in the top 20% of the document: {above_text}')
+
+
+
+
+
+
+import json
+
 def get_text_in_range(file_path, left_range, above_range):
     with open(file_path, 'r') as f:
         textract_output = json.load(f)
