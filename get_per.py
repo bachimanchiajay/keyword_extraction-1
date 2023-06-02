@@ -1,5 +1,35 @@
 import json
 
+def get_text_in_range(file_path, left_range, above_range):
+    with open(file_path, 'r') as f:
+        textract_output = json.load(f)
+
+    all_texts = []
+
+    for block in textract_output['Blocks']:
+        if block['BlockType'] in ['WORD', 'LINE']:
+            all_texts.append(block)
+
+    # Filter out only the texts that are within the specified range from the left and top
+    left_texts = [text_block['Text'] for text_block in all_texts
+                  if text_block['Geometry']['BoundingBox']['Left'] < left_range]
+
+    above_texts = [text_block['Text'] for text_block in all_texts
+                   if text_block['Geometry']['BoundingBox']['Top'] < above_range]
+
+    return ' '.join(left_texts), ' '.join(above_texts)
+
+file_path = 'your_json_file.json'  # Replace this with your file path
+
+left_text, above_text = get_text_in_range(file_path, 0.3, 0.2)
+print(f'Text in the left 30% of the document: {left_text}')
+print(f'Text in the top 20% of the document: {above_text}')
+
+
+
+
+import json
+
 def get_text_in_range(file_path, search_string, left_range, above_range, page_number):
     with open(file_path, 'r') as f:
         textract_output = json.load(f)
