@@ -1,4 +1,57 @@
 import json
+import re
+
+def get_nearest_percentage(file_path, search_string):
+    with open(file_path, 'r') as f:
+        textract_output = json.load(f)
+
+    # Regular expression to match percentage values
+    percentage_pattern = re.compile(r'(\d+(\.\d{1,2})?%)')
+
+    search_string_data = None
+    all_texts = []
+
+    for block in textract_output['Blocks']:
+        if block['BlockType'] in ['WORD', 'LINE']:
+            text = block['Text']
+            all_texts.append(block)
+
+            # Save the block data if it matches the search string
+            if text == search_string:
+                search_string_data = block
+
+    if search_string_data is None:
+        print(f'Search string "{search_string}" not found in the document.')
+        return None
+
+    search_box = search_string_data['Geometry']['BoundingBox']
+
+    nearest_percentage = None
+    nearest_distance = float('inf')
+
+    # Check each text block for percentages and if it's nearer to the search string
+    for text_block in all_texts:
+        box = text_block['Geometry']['BoundingBox']
+        # Calculate distance as Euclidean distance
+        distance = ((box['Left'] - search_box['Left'])**2 + (box['Top'] - search_box['Top'])**2)**0.5
+
+        # Check if there's a percentage in the text block
+        percentages = percentage_pattern.findall(text_block['Text'])
+        if percentages and distance < nearest_distance:
+            nearest_distance = distance
+            nearest_percentage = percentages[0]  # Assuming we only want the first match
+
+    return nearest_percentage
+
+file_path = 'your_json_file.json'  # Replace this with your file path
+search_string = 'YourSearchString'  # Replace this with your search string
+
+nearest_percentage = get_nearest_percentage(file_path, search_string)
+print(f'Nearest percentage to "{search_string}": {nearest_percentage}')
+
+
+
+import json
 
 def get_text_in_range(file_path, left_range, above_range, x, y, w, h):
     with open(file_path, 'r') as f:
