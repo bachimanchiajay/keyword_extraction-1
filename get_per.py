@@ -1,4 +1,25 @@
 import json
+
+def get_text_from_page(file_path, page_number):
+    with open(file_path, 'r') as f:
+        textract_output = json.load(f)
+
+    page_texts = []
+
+    for block in textract_output['Blocks']:
+        if block['BlockType'] in ['WORD', 'LINE'] and block['Page'] == page_number:
+            page_texts.append(block['Text'])
+
+    return ' '.join(page_texts)
+
+file_path = 'your_json_file.json'  # Replace this with your file path
+page_number = 2  # Replace this with your desired page number
+
+page_text = get_text_from_page(file_path, page_number)
+print(f'Text from page {page_number}: {page_text}')
+
+
+import json
 import re
 
 def get_nearest_percentage(file_path, search_string):
