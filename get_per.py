@@ -1,4 +1,38 @@
 import json
+
+def get_coordinates_of_string(file_path, search_string):
+    with open(file_path, 'r') as f:
+        textract_output = json.load(f)
+
+    for block in textract_output['Blocks']:
+        if block['BlockType'] in ['WORD', 'LINE'] and block['Text'] == search_string:
+            # Get the bounding box of the block
+            bounding_box = block['Geometry']['BoundingBox']
+
+            # Calculate the actual coordinates based on the bounding box
+            coordinates = {
+                'x': bounding_box['Left'],
+                'y': bounding_box['Top'],
+                'w': bounding_box['Width'],
+                'h': bounding_box['Height'],
+            }
+
+            return coordinates
+
+    print(f'Search string "{search_string}" not found in the document.')
+    return None
+
+file_path = 'your_json_file.json'  # Replace this with your file path
+search_string = 'YourSearchString'  # Replace this with your search string
+
+coordinates = get_coordinates_of_string(file_path, search_string)
+print(f'Coordinates of "{search_string}": {coordinates}')
+
+
+
+
+
+import json
 import re
 
 def get_surrounding_text(file_path, x, y, w, h):
