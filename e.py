@@ -1,15 +1,32 @@
-import json
+import boto3
+import pandas as pd
 
-def get_page_json(textract_json_file, page_number):
-    with open(textract_json_file) as file:
-        data = json.load(file)
+def get_page_data(bucket, document, page_number):
+    result, df_line, df_word = process_text_analysis(bucket, document, page_number)
 
-    pages = data["Blocks"]
-    for page in pages:
-        if page["BlockType"] == "PAGE" and page["Page"] == page_number:
-            return page
+    if result is not None:
+        page_text = result["text"]
+        line_data = df_line[df_line["page"] == page_number]
+        word_data = df_word[df_word["page"] == page_number]
+        return page_text, line_data, word_data
+    else:
+        return None, None, None
 
-    return None
+# Example usage
+bucket_name = "your-bucket-name"
+document_key = "your-document-key"
+page_number = 5
+
+page_text, line_data, word_data = get_page_data(bucket_name, document_key, page_number)
+
+if page_text is not None:
+    print("Page Text:", page_text)
+    print("Line Data:")
+    print(line_data)
+    print("Word Data:")
+    print(word_data)
+else:
+    print(f"No data found for page {page_number}.")
 
 # Example usage
 textract_json_file = "path/to/textract.json"
