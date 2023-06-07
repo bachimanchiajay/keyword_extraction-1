@@ -1,5 +1,47 @@
 import json
 
+def find_coordinates(textract_json, search_strings):
+    with open(textract_json) as file:
+        data = json.load(file)
+
+    blocks = data["Blocks"]
+    coordinates = []
+
+    for block in blocks:
+        if block["BlockType"] == "WORD":
+            word = block["Text"].replace(" ", "")
+            for search_string in search_strings:
+                search_string_without_spaces = search_string.replace(" ", "")
+                if search_string_without_spaces in word:
+                    geometry = block["Geometry"]
+                    bounding_box = geometry["BoundingBox"]
+                    left = bounding_box["Left"]
+                    top = bounding_box["Top"]
+                    width = bounding_box["Width"]
+                    height = bounding_box["Height"]
+
+                    coordinates.append((left, top, width, height))
+                    break  # Break the loop to avoid duplicates
+
+    return coordinates
+
+# Example usage
+textract_json_file = "path/to/textract.json"
+search_strings = ["HEA777JAA", "Another Search String"]
+
+coordinates = find_coordinates(textract_json_file, search_strings)
+if coordinates:
+    for i, coords in enumerate(coordinates, 1):
+        left, top, width, height = coords
+        print(f"Coordinates {i}: Left={left}, Top={top}, Width={width}, Height={height}")
+else:
+    print("No search strings found.")
+
+
+
+
+import json
+
 def find_coordinates(textract_json, search_string):
     with open(textract_json) as file:
         data = json.load(file)
