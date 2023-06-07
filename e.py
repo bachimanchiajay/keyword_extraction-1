@@ -1,3 +1,40 @@
+import json
+
+def find_coordinates(textract_json, search_string):
+    with open(textract_json) as file:
+        data = json.load(file)
+
+    blocks = data["Blocks"]
+    text_without_spaces = search_string.replace(" ", "")  # Remove spaces from the search string
+
+    for block in blocks:
+        if block["BlockType"] == "WORD" and block["Text"].replace(" ", "") == text_without_spaces:
+            geometry = block["Geometry"]
+            bounding_box = geometry["BoundingBox"]
+            left = bounding_box["Left"]
+            top = bounding_box["Top"]
+            width = bounding_box["Width"]
+            height = bounding_box["Height"]
+
+            return (left, top, width, height)
+
+    return None
+
+# Example usage
+textract_json_file = "path/to/textract.json"
+search_string = "HEA777JAA"
+
+coordinates = find_coordinates(textract_json_file, search_string)
+if coordinates:
+    left, top, width, height = coordinates
+    print(f"Coordinates: Left={left}, Top={top}, Width={width}, Height={height}")
+else:
+    print("Search string not found.")
+
+
+
+
+
 import boto3
 import json
 
