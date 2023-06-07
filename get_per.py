@@ -8,6 +8,49 @@ s3 = boto3.client('s3')
 bucket_name = 'mybucket'
 key = 'folder/subfolder/myfile.json'
 
+def get_coordinates(json_content, search_strings):
+    for search_string in search_strings:
+        try:
+            found = False
+            for block in json_content['Blocks']:
+                if block['BlockType'] in ['LINE', 'WORD']:
+                    # Remove spaces from the block text and the search string
+                    block_text_without_spaces = block['Text'].replace(" ", "")
+                    search_string_without_spaces = search_string.replace(" ", "")
+                    if search_string_without_spaces in block_text_without_spaces:
+                        print(f'Found the search string "{search_string}" in the document.')
+                        print(f'Coordinates: {block["Geometry"]["BoundingBox"]}')
+                        found = True
+                        break
+            if not found:
+                print(f'Search string "{search_string}" not found in the document.')
+        except Exception as e:
+            print(f'Error occurred while processing search string "{search_string}": {e}')
+
+# Retrieve the file content
+response = s3.get_object(Bucket=bucket_name, Key=key)
+file_content = response['Body'].read().decode('utf-8')
+
+# Parse the JSON file content
+json_content = json.loads(file_content)
+
+# List of search strings
+search_strings = ['SearchString1', 'SearchString2', 'SearchString3']  # Replace these with your search strings
+
+get_coordinates(json_content, search_strings)
+
+
+
+import boto3
+import json
+
+# Create an S3 client
+s3 = boto3.client('s3')
+
+# The name of the bucket and key of the file
+bucket_name = 'mybucket'
+key = 'folder/subfolder/myfile.json'
+
 # Retrieve the file content
 response = s3.get_object(Bucket=bucket_name, Key=key)
 file_content = response['Body'].read().decode('utf-8')
