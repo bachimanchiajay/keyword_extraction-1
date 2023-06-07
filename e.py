@@ -1,6 +1,79 @@
 import json
 from fuzzywuzzy import fuzz
 
+def find_coordinates(text, search_strings):
+    data = json.loads(text)
+
+    blocks = data["Blocks"]
+    coordinates = []
+
+    for block in blocks:
+        if block["BlockType"] == "WORD":
+            word = "".join(c for c in block["Text"] if c.isalnum())  # Remove non-alphanumeric characters
+            for search_string in search_strings:
+                search_string_alnum = "".join(c for c in search_string if c.isalnum())
+                match_ratio = fuzz.ratio(word, search_string_alnum)
+                if match_ratio >= 80:  # Adjust the threshold as needed
+                    geometry = block["Geometry"]
+                    bounding_box = geometry["BoundingBox"]
+                    left = bounding_box["Left"]
+                    top = bounding_box["Top"]
+                    width = bounding_box["Width"]
+                    height = bounding_box["Height"]
+
+                    coordinates.append((left, top, width, height))
+                    break  # Break the loop to avoid duplicates
+
+    return coordinates
+
+# Example usage
+textract_text = '''
+{
+  "Blocks": [
+    {
+      "BlockType": "WORD",
+      "Text": "H E A 1 1 1 J 8 A A",
+      "Geometry": {
+        "BoundingBox": {
+          "Left": 0.123,
+          "Top": 0.456,
+          "Width": 0.789,
+          "Height": 0.321
+        }
+      }
+    },
+    {
+      "BlockType": "WORD",
+      "Text": "HEA196JDK F",
+      "Geometry": {
+        "BoundingBox": {
+          "Left": 0.987,
+          "Top": 0.654,
+          "Width": 0.321,
+          "Height": 0.456
+        }
+      }
+    }
+  ]
+}
+'''
+
+search_strings = ["HEA111J8AA", "HEA196JDKF"]
+
+coordinates = find_coordinates(textract_text, search_strings)
+if coordinates:
+    for i, coords in enumerate(coordinates, 1):
+        left, top, width, height = coords
+        print(f"Coordinates {i}: Left={left}, Top={top}, Width={width}, Height={height}")
+else:
+    print("No search strings found.")
+
+
+
+
+import json
+from fuzzywuzzy import fuzz
+
 def find_coordinates(textract_json, search_strings):
     with open(textract_json) as file:
         data = json.load(file)
