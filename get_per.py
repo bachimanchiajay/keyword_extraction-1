@@ -1,5 +1,10 @@
 import json
+search_string = " ".join(list("HEA748Q22AA"))
 
+ji = """BMG INSURANCE BROKERS LIMITED 1165 BMG POLICY NUMBER E01742200 security details HEA748Q22A A"""
+ji = " ".join(list(ji.replace(" ", "")))
+
+print(search_string in ji)
 def get_coordinates_of_string(file_path, search_string):
     with open(file_path, 'r') as f:
         textract_output = json.load(f)
