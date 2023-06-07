@@ -1,3 +1,44 @@
+def get_coordinates_of_string(bucket, file_path, search_string):
+    s3_connection = boto3.resource("s3")
+    client = boto3.client('s3')
+    result = client.get_object(Bucket=bucket, Key=file_path)
+    text = result['Body'].read().decode('utf-8')
+    textract_output = json.loads(text)
+
+    try:
+        for res in textract_output:
+            for block in res['Blocks']:
+                if block['BlockType'] in ['WORD', 'LINE']:
+                    text = block['Text']
+                    # Check for exact match
+                    if text == search_string:
+                        bounding_box = block['Geometry']['BoundingBox']
+                        coordinates = {
+                            'x': bounding_box['Left'],
+                            'y': bounding_box['Top'],
+                            'w': bounding_box['Width'],
+                            'h': bounding_box['Height'],
+                        }
+                        return coordinates
+
+                    # Check for match with extra spaces and characters
+                    if search_string in text:
+                        bounding_box = block['Geometry']['BoundingBox']
+                        coordinates = {
+                            'x': bounding_box['Left'],
+                            'y': bounding_box['Top'],
+                            'w': bounding_box['Width'],
+                            'h': bounding_box['Height'],
+                        }
+                        return coordinates
+    except Exception as e:
+        print('An error occurred:', e)
+        return None
+
+    return None
+
+
+
 def final_fn(bucket_name, json_path, reference_numbers):
     list1 = []
     text_dict, _, _, df_word = process_text_analysis(bucket_name, json_path)
