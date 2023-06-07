@@ -32,7 +32,8 @@ for search_string in search_strings:
                 found = True
                 break
     if not found:
-        print(f'Search string "{search_string}" not found in the
+        print(f'Search string "{search_string}" not found in the document.')
+
 
 
 import boto3
