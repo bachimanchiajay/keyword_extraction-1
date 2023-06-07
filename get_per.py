@@ -23,17 +23,16 @@ for search_string in search_strings:
     found = False
     for block in json_content['Blocks']:
         if block['BlockType'] in ['LINE', 'WORD']:
-            # Remove spaces from the block text
-            block_text = block['Text'].replace(" ", "")
-            if search_string in block_text:
+            # Remove spaces from the block text and the search string
+            block_text_without_spaces = block['Text'].replace(" ", "")
+            search_string_without_spaces = search_string.replace(" ", "")
+            if search_string_without_spaces in block_text_without_spaces:
                 print(f'Found the search string "{search_string}" in the document.')
                 print(f'Coordinates: {block["Geometry"]["BoundingBox"]}')
                 found = True
                 break
     if not found:
-        print(f'Search string "{search_string}" not found in the document.')
-
-
+        print(f'Search string "{search_string}" not found in the
 
 
 import boto3
