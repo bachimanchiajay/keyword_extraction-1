@@ -1,4 +1,29 @@
 import json
+
+def get_page_json(textract_json_file, page_number):
+    with open(textract_json_file) as file:
+        data = json.load(file)
+
+    pages = data["Blocks"]
+    for page in pages:
+        if page["BlockType"] == "PAGE" and page["Page"] == page_number:
+            return page
+
+    return None
+
+# Example usage
+textract_json_file = "path/to/textract.json"
+page_number = 5
+
+page_json = get_page_json(textract_json_file, page_number)
+if page_json:
+    print(json.dumps(page_json, indent=2))  # Print the JSON data for the 5th page
+else:
+    print(f"No JSON data found for page {page_number}.")
+
+
+
+import json
 from fuzzywuzzy import fuzz
 
 def find_coordinates(textract_json, page_number, search_strings):
