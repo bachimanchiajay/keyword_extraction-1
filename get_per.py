@@ -1,268 +1,192 @@
 import boto3
 import json
+import pandas as pd
 import re
+import os
+
+def process_text_analysis(bucket, document):
+    s3_connection = boto3.resource("s3")
+    client = boto3.client('s3')
+    result = client.get_object(Bucket=bucket, Key=document)
+    text = result['Body'].read().decode('utf-8')
+    res = json.loads(text)
+
+    left_cor = []
+    top_cor = []
+    width_cor = []
+    height_cor = []
+    page = []
+    line_text = []
+
+    for response in res:
+        blocks = response["Blocks"]
+        for block in blocks:
+            if block["BlockType"] == "LINE":
+                left_cor.append(float("{:.3f}".format(block["Geometry"]["BoundingBox"]["Left"])))
+                top_cor.append(float("{:.3f}".format(block["Geometry"]["BoundingBox"]["Top"])))
+                width_cor.append(float("{:.3f}".format(block["Geometry"]["BoundingBox"]["Width"])))
+                height_cor.append(float("{:.3f}".format(block["Geometry"]["BoundingBox"]["Height"])))
+                line_text.append(block["Text"])
+                page.append(block["Page"])
+
+    df_line = pd.DataFrame(list(zip(left_cor, top_cor, width_cor, height_cor, line_text, page)),
+                           columns=["xmin", "ymin", "width_cor", "height_cor", "line_text", "page"])
+    df_line["xmax"] = (df_line["xmin"] + df_line["width_cor"])
+    df_line["ymax"] = (df_line["ymin"] + df_line["height_cor"])
+
+    left_cor = []
+    top_cor = []
+    width_cor = []
+    height_cor = []
+    page = []
+    word_text = []
+
+    for response in res:
+        blocks = response["Blocks"]
+        for block in blocks:
+            if block["BlockType"] == "WORD":
+                left_cor.append(float("{:.3f}".format(block["Geometry"]["BoundingBox"]["Left"])))
+                top_cor.append(float("{:.3f}".format(block["Geometry"]["BoundingBox"]["Top"])))
+                width_cor.append(float("{:.3f}".format(block["Geometry"]["BoundingBox"]["Width"])))
+                height_cor.append(float("{:.3f}".format(block["Geometry"]["BoundingBox"]["Height"])))
+                word_text.append(block["Text"])
+                page.append(block["Page"])
+
+    df_word = pd.DataFrame(list(zip(left_cor, top_cor, width_cor, height_cor, word_text, page)),
+                           columns=["xmin", "ymin", "width_cor", "height_cor", "word_text", "page"])
+    df_word["xmax"] = (df_word["xmin"] + df_word["width_cor"])
+    df_word["ymax"] = (df_word["ymin"] + df_word["height_cor"])
+
+    pages = df_line.page.unique().tolist()
+    text_dict = {}
+    for p in pages:
+        dfp = df_line[df_line.page == p]
+        txt_list = dfp.line_text.tolist()
+        txt = " ".join(txt_list)
+        text_dict[p] = txt
+
+    return text_dict, res, df_line, df_word
+
+
+def get_reference_page(text_dict):
+    reference_page = None
+    pattern_security_details = r'(Security\s*Details?\s*:?)|(SECURITY\s*DETAILS?\s*:?)|(Security\s*details?\s*:?)|(SIGNED\s*UNDERWRITERS?\s*:?)|(Reinsured\s*Signing\s*Page?\s*:?)|(Reinsurer\s*Signing\s*Page?\s*:?)'
+    pattern_wr = r'(WRITTEN\s*LINES\s*:?)|(Written\s*:?)'
+    pattern_tmk = r'(TMK1880\s*:?)'
+    pattern_kln = r'(KLN510\s*:?)'
+    pattern_lloyd = r'(Lloyd’s?\s*:?)|(Lloyd’s\s*Underwriter\s*Synd.?\s*:?)'
+    pattern = r'[A-Za-z]{1}\s*[A-Za-z]{1}\s*[A-Za-z]{1}\s*\d{1}\s*\d{1}\s*\d{1}\s*[A-Za-z]{1}\s*\d{1}\s*\d{1}\s*[A-Za-z]{1}\s*[A-Za-z]{1}'
+
+    for page_no, page_text in text_dict.items():
+        match_sec = re.search(pattern_security_details, page_text)
+        match_wr = re.search(pattern_wr, page_text)
+        match_tmk = re.search(pattern_tmk, page_text)
+        match_kln = re.search(pattern_kln, page_text)
+        match_lloyd = re.search(pattern_lloyd, page_text)
+        match_pattern = re.search(pattern, page_text)
+
+        if (match_sec and match_wr and match_pattern) or (
+                match_sec and match_tmk and match_kln and match_pattern) or (
+                match_sec and match_tmk and match_kln and match_lloyd and match_pattern) or (
+                match_wr and match_tmk and match_kln and match_pattern):
+            reference_page = page_no
+            break
+
+    return reference_page
+
+
+def get_refernce_json_page(bucket, document, output_json, page_no):
+    s3_connection = boto3.resource("s3")
+    client = boto3.client('s3')
+    result = client.get_object(Bucket=bucket, Key=document)
+    text = result['Body'].read().decode('utf-8')
+    res = json.loads(text)
+
+    page_blocks = []
+    for response in res:
+        blocks = response["Blocks"]
+        for block in blocks:
+            if 'Page' in block and block['Page'] == page_no:
+                page_blocks.append(block)
+    page_data = {'Blocks': page_blocks}
+
+    with open(output_json, 'w') as f:
+        json.dump(page_data, f)
+
+
+def add_space(reference_id):
+    reference_id = ' '.join(reference_id)
+    return reference_id
+
+
+def get_coordinates_of_string(bucket, file_path, search_string):
+    s3_connection = boto3.resource("s3")
+    client = boto3.client('s3')
+    result = client.get_object(Bucket=bucket, Key=file_path)
+    text = result['Body'].read().decode('utf-8')
+    textract_output = json.loads(text)
+
+    try:
+        for res in textract_output:
+            for block in res['Blocks']:
+                if block['BlockType'] in ['WORD', 'LINE'] and block['Text'] == search_string:
+                    bounding_box = block['Geometry']['BoundingBox']
+                    coordinates = {
+                        'x': bounding_box['Left'],
+                        'y': bounding_box['Top'],
+                        'w': bounding_box['Width'],
+                        'h': bounding_box['Height'],
+                    }
+                    return coordinates
+                elif block['BlockType'] in ['WORD', 'LINE'] and block['Text'] == add_space(search_string):
+                    bounding_box = block['Geometry']['BoundingBox']
+                    coordinates = {
+                        'x': bounding_box['Left'],
+                        'y': bounding_box['Top'],
+                        'w': bounding_box['Width'],
+                        'h': bounding_box['Height'],
+                    }
+                    return coordinates
+    except Exception as e:
+        print('An error occurred:', e)
+        return None
+
+
+def extract_reference_ids_and_draw_bounding_boxes_from_json(json_file, regex_pattern):
+    with open(json_file, "r") as file:
+        response = json.load(file)
+
+    blocks = response['Blocks']
+    text = ''
+    for item in response['Blocks']:
+        if item["BlockType"] == 'LINE':
+            text += item['Text'] + ' '
+
+    reference_ids = []
+    reference_id_coordinates = []
+    for block in blocks:
+        if block['BlockType'] == 'LINE':
+            text = block['Text']
+            match = re.search(regex_pattern, text)
+            if match:
+                reference_id = match.group(0)
+                reference_ids.append(reference_id)
+                reference_id_coordinates.append(block['Geometry']['BoundingBox'])
+
+    x = reference_id_coordinates[0]['Left']
+    y = reference_id_coordinates[0]['Top']
+    w = reference_id_coordinates[0]['Width']
+    h = reference_id_coordinates[0]['Height']
+
+    return x, y, w, h
 
-# Create an S3 client
-s3 = boto3.client('s3')
-
-# The name of the bucket and key of the file
-bucket_name = 'mybucket'
-key = 'folder/subfolder/myfile.json'
-
-def get_coordinates(json_content, search_strings, page_num):
-    for search_string in search_strings:
-        try:
-            found = False
-            # Create a pattern with optional spaces between each character
-            pattern = " *".join(search_string)
-            for block in json_content['Blocks']:
-                if block['BlockType'] in ['LINE', 'WORD'] and block.get('Page', None) == page_num:
-                    if re.search(pattern, block['Text'], re.IGNORECASE):
-                        print(f'Found the search string "{search_string}" in the document.')
-                        print(f'Coordinates: {block["Geometry"]["BoundingBox"]}')
-                        found = True
-                        break
-            if not found:
-                print(f'Search string "{search_string}" not found in the document.')
-        except Exception as e:
-            print(f'Error occurred while processing search string "{search_string}": {e}')
-
-# Retrieve the file content
-response = s3.get_object(Bucket=bucket_name, Key=key)
-file_content = response['Body'].read().decode('utf-8')
-
-# Parse the JSON file content
-json_content = json.loads(file_content)
-
-# List of search strings
-search_strings = ['SearchString1', 'SearchString2', 'SearchString3']  # Replace these with your search strings
-
-# Specify the page number
-page_num = 1  # Replace this with your page number
-
-get_coordinates(json_content, search_strings, page_num)
-
-
-
-
-
-
-import boto3
-import json
-
-# Create an S3 client
-s3 = boto3.client('s3')
-
-# The name of the bucket and key of the file
-bucket_name = 'mybucket'
-key = 'folder/subfolder/myfile.json'
-
-def get_coordinates(json_content, search_strings, page_num):
-    for search_string in search_strings:
-        try:
-            found = False
-            for block in json_content['Blocks']:
-                if block['BlockType'] in ['LINE', 'WORD'] and block.get('Page', None) == page_num:
-                    # Remove spaces from the block text and the search string
-                    block_text_without_spaces = block['Text'].replace(" ", "")
-                    search_string_without_spaces = search_string.replace(" ", "")
-                    if search_string_without_spaces in block_text_without_spaces:
-                        print(f'Found the search string "{search_string}" in the document.')
-                        print(f'Coordinates: {block["Geometry"]["BoundingBox"]}')
-                        found = True
-                        break
-            if not found:
-                print(f'Search string "{search_string}" not found in the document.')
-        except Exception as e:
-            print(f'Error occurred while processing search string "{search_string}": {e}')
-
-# Retrieve the file content
-response = s3.get_object(Bucket=bucket_name, Key=key)
-file_content = response['Body'].read().decode('utf-8')
-
-# Parse the JSON file content
-json_content = json.loads(file_content)
-
-# List of search strings
-search_strings = ['SearchString1', 'SearchString2', 'SearchString3']  # Replace these with your search strings
-
-# Specify the page number
-page_num = 1  # Replace this with your page number
-
-get_coordinates(json_content, search_strings, page_num)
-
-
-
-import boto3
-import json
-
-# Create an S3 client
-s3 = boto3.client('s3')
-
-# The name of the bucket and key of the file
-bucket_name = 'mybucket'
-key = 'folder/subfolder/myfile.json'
-
-def get_coordinates(json_content, search_strings):
-    for search_string in search_strings:
-        try:
-            found = False
-            for block in json_content['Blocks']:
-                if block['BlockType'] in ['LINE', 'WORD']:
-                    # Remove spaces from the block text and the search string
-                    block_text_without_spaces = block['Text'].replace(" ", "")
-                    search_string_without_spaces = search_string.replace(" ", "")
-                    if search_string_without_spaces in block_text_without_spaces:
-                        print(f'Found the search string "{search_string}" in the document.')
-                        print(f'Coordinates: {block["Geometry"]["BoundingBox"]}')
-                        found = True
-                        break
-            if not found:
-                print(f'Search string "{search_string}" not found in the document.')
-        except Exception as e:
-            print(f'Error occurred while processing search string "{search_string}": {e}')
-
-# Retrieve the file content
-response = s3.get_object(Bucket=bucket_name, Key=key)
-file_content = response['Body'].read().decode('utf-8')
-
-# Parse the JSON file content
-json_content = json.loads(file_content)
-
-# List of search strings
-search_strings = ['SearchString1', 'SearchString2', 'SearchString3']  # Replace these with your search strings
-
-get_coordinates(json_content, search_strings)
-
-
-
-import boto3
-import json
-
-# Create an S3 client
-s3 = boto3.client('s3')
-
-# The name of the bucket and key of the file
-bucket_name = 'mybucket'
-key = 'folder/subfolder/myfile.json'
-
-# Retrieve the file content
-response = s3.get_object(Bucket=bucket_name, Key=key)
-file_content = response['Body'].read().decode('utf-8')
-
-# Parse the JSON file content
-json_content = json.loads(file_content)
-
-# List of search strings
-search_strings = ['SearchString1', 'SearchString2', 'SearchString3']  # Replace these with your search strings
-
-# Perform the search
-for search_string in search_strings:
-    found = False
-    for block in json_content['Blocks']:
-        if block['BlockType'] in ['LINE', 'WORD']:
-            # Remove spaces from the block text and the search string
-            block_text_without_spaces = block['Text'].replace(" ", "")
-            search_string_without_spaces = search_string.replace(" ", "")
-            if search_string_without_spaces in block_text_without_spaces:
-                print(f'Found the search string "{search_string}" in the document.')
-                print(f'Coordinates: {block["Geometry"]["BoundingBox"]}')
-                found = True
-                break
-    if not found:
-        print(f'Search string "{search_string}" not found in the document.')
-
-
-
-import boto3
-import json
-
-# Create an S3 client
-s3 = boto3.client('s3')
-
-# The name of the bucket and key of the file
-bucket_name = 'mybucket'
-key = 'folder/subfolder/myfile.json'
-
-# Retrieve the file content
-response = s3.get_object(Bucket=bucket_name, Key=key)
-file_content = response['Body'].read().decode('utf-8')
-
-# Parse the JSON file content
-json_content = json.loads(file_content)
-
-# List of search strings
-search_strings = ['SearchString1', 'SearchString2', 'SearchString3']  # Replace these with your search strings
-# Add spaces between characters in the search strings
-search_strings_spaced = [" ".join(list(search_string)) for search_string in search_strings]
-
-# Perform the search
-for search_string_spaced in search_strings_spaced:
-    found = False
-    for block in json_content['Blocks']:
-        if block['BlockType'] in ['LINE', 'WORD']:
-            # Add spaces between characters in the block text
-            block_text_spaced = " ".join(list(block['Text'].replace(" ", "")))
-            if search_string_spaced in block_text_spaced:
-                print(f'Found the search string "{search_string_spaced}" in the document.')
-                print(f'Coordinates: {block["Geometry"]["BoundingBox"]}')
-                found = True
-                break
-    if not found:
-        print(f'Search string "{search_string_spaced}" not found in the document.')
-
-
-
-
-
-import json
-search_string = " ".join(list("HEA748Q22AA"))
-
-ji = """BMG INSURANCE BROKERS LIMITED 1165 BMG POLICY NUMBER E01742200 security details HEA748Q22A A"""
-ji = " ".join(list(ji.replace(" ", "")))
-
-print(search_string in ji)
-def get_coordinates_of_string(file_path, search_string):
-    with open(file_path, 'r') as f:
-        textract_output = json.load(f)
-
-    for block in textract_output['Blocks']:
-        if block['BlockType'] in ['WORD', 'LINE'] and block['Text'] == search_string:
-            # Get the bounding box of the block
-            bounding_box = block['Geometry']['BoundingBox']
-
-            # Calculate the actual coordinates based on the bounding box
-            coordinates = {
-                'x': bounding_box['Left'],
-                'y': bounding_box['Top'],
-                'w': bounding_box['Width'],
-                'h': bounding_box['Height'],
-            }
-
-            return coordinates
-
-    print(f'Search string "{search_string}" not found in the document.')
-    return None
-
-file_path = 'your_json_file.json'  # Replace this with your file path
-search_string = 'YourSearchString'  # Replace this with your search string
-
-coordinates = get_coordinates_of_string(file_path, search_string)
-print(f'Coordinates of "{search_string}": {coordinates}')
-
-
-
-
-
-import json
-import re
 
 def get_surrounding_text(file_path, x, y, w, h):
     with open(file_path, 'r') as f:
         textract_output = json.load(f)
 
     left_texts, right_texts, top_texts, bottom_texts = [], [], [], []
-    percentage_pattern = r'\b\d{1,3}(?:\.\d{1,2})?%\b'
+    percentage_pattern = r'\b(?!(?:80|20)%)\d+(?:\.\d+)?\s*%'
 
     for block in textract_output['Blocks']:
         if block['BlockType'] in ['WORD', 'LINE']:
@@ -271,7 +195,7 @@ def get_surrounding_text(file_path, x, y, w, h):
             width = block['Geometry']['BoundingBox']['Width']
             height = block['Geometry']['BoundingBox']['Height']
 
-            if left < x and (y <= top <= y + h):
+            if left < x and (y <= top <= y + h) or (y - 0.4 * h <= top <= y + 1 + h):
                 left_texts.append(block['Text'])
 
             if left + width > x + w and (y <= top <= y + h):
@@ -288,113 +212,88 @@ def get_surrounding_text(file_path, x, y, w, h):
     top_percentages = [re.findall(percentage_pattern, text) for text in top_texts]
     bottom_percentages = [re.findall(percentage_pattern, text) for text in bottom_texts]
 
-    # Flatten the lists of lists
     left_percentages = [percentage for sublist in left_percentages for percentage in sublist]
     right_percentages = [percentage for sublist in right_percentages for percentage in sublist]
     top_percentages = [percentage for sublist in top_percentages for percentage in sublist]
     bottom_percentages = [percentage for sublist in bottom_percentages for percentage in sublist]
 
-    return (left_texts, left_percentages), (right_texts, right_percentages), (top_texts, top_percentages), (bottom_texts, bottom_percentages)
-
-file_path = 'your_json_file.json'  # Replace this with your file path
-x, y, w, h = 0.5, 0.5, 0.1, 0.1  # Replace this with your x, y, w, h
-
-(left_texts, left_percentages), (right_texts, right_percentages), (top_texts, top_percentages), (bottom_texts, bottom_percentages) = get_surrounding_text(file_path, x, y, w, h)
-print(f'Texts to the left of the region: {left_texts}, Percentages: {left_percentages}')
-print(f'Texts to the right of the region: {right_texts}, Percentages: {right_percentages}')
-print(f'Texts above the region: {top_texts}, Percentages: {top_percentages}')
-print(f'Texts below the region: {bottom_texts}, Percentages: {bottom_percentages}')
+    return left_percentages
 
 
+def merge_1(json_file):
+    pattern_reference = r'[A-Za-z]{1}\s*[A-Za-z]{1}\s*[A-Za-z]{1}\s*\d{1}\s*\d{1}\s*\d{1}\s*[A-Za-z]{1}\s*\d{1}\s*\d{1}\s*[A-Za-z]{1}\s*[A-Za-z]{1}'
+    x, y, w, h = extract_reference_ids_and_draw_bounding_boxes_from_json(json_file, pattern_reference)
+    left_percentages = get_surrounding_text(json_file, x, y, w, h)
+
+    pattern_lloyd = r"Lloyd's\sUnderwriter"
+    x1, y1, w1, h1 = extract_reference_ids_and_draw_bounding_boxes_from_json(json_file, pattern_lloyd)
+    left_percentages2 = get_surrounding_text(json_file, x1, y1, w1, h1)
+
+    final_per = left_percentages + left_percentages2
+
+    if final_per == []:
+        return None
+    else:
+        return final_per[0]
 
 
-
-import json
-import re
-
-def get_left_and_above_left_text(file_path, x, y, w, h):
-    with open(file_path, 'r') as f:
-        textract_output = json.load(f)
-
-    left_texts = []
-    above_left_texts = []
-
-    for block in textract_output['Blocks']:
-        if block['BlockType'] in ['WORD', 'LINE']:
-            left = block['Geometry']['BoundingBox']['Left']
-            top = block['Geometry']['BoundingBox']['Top']
-
-            if left < x and (y <= top <= y + h):
-                left_texts.append(block['Text'])
-
-            if left < x and top < y:
-                above_left_texts.append(block['Text'])
-
-    # Find all percentage strings in the left_texts and above_left_texts
-    percentage_pattern = r'\b\d{1,3}(?:\.\d{1,2})?%\b'
-    left_percentages = [re.findall(percentage_pattern, text) for text in left_texts]
-    above_left_percentages = [re.findall(percentage_pattern, text) for text in above_left_texts]
-
-    # Flatten the lists of lists
-    left_percentages = [percentage for sublist in left_percentages for percentage in sublist]
-    above_left_percentages = [percentage for sublist in above_left_percentages for percentage in sublist]
-
-    return left_percentages, above_left_percentages
-
-file_path = 'your_json_file.json'  # Replace this with your file path
-x, y, w, h = 0.5, 0.5, 0.1, 0.1  # Replace this with your x, y, w, h
-
-left_percentages, above_left_percentages = get_left_and_above_left_text(file_path, x, y, w, h)
-print(f'Percentage texts to the left of the region: {left_percentages}')
-print(f'Percentage texts above and to the left of the region: {above_left_percentages}')
+def add_spaces(stri):
+    stri = ' '.join(stri)
+    return stri
 
 
+def final_fn(bucket_name, json_path, reference_id):
+    list1 = []
+    text_dict, _, _, df_word = process_text_analysis(bucket_name, json_path)
+    page = get_reference_page(text_dict)
 
-import json
+    try:
+        if page != None:
+            text_page = text_dict[page]
+            print(text_page)
 
-def get_text_near_search_string(file_path, search_string, page_num, left_percent, above_percent, below_percent):
-    with open(file_path, 'r') as f:
-        textract_output = json.load(f)
+            for i in range(len(reference_id)):
+                search_string = reference_id[i]
+                search_string = add_spaces(search_string)
+                coordinates = get_coordinates_of_string(bucket_name, json_path, search_string)
+                get_refernce_json_page(bucket_name, json_path, "AMU.json", page)
+                per = merge_1("AMU.json")
+                pattern_date = r'\b(?:\d{1,2}/\d{1,2}/\d{2,4}|\d{4}-\d{2}-d{2}|(?:\d{1,2}|(?:(?:3[01]|[12][0-9]|0?[1-9])th)) \w+\d{2,4})\b'
+                matches_date = re.findall(pattern_date, text_page)
+                percentage_line = per.replace('%', '')
+                written_line = ''
+                entity = str(510)
+                section_type = str("NON EEA")
 
-    search_string_data = None
-    all_texts = []
+                if coordinates != None:
+                    dict1 = {
+                        reference_id[i]: {
+                            "overall_written_line": percentage_line,
+                            'written_line': written_line,
+                            'entity': entity,
+                            "written_date": str(matches_date[0]),
+                            'Risk_Code': [],
+                            'page_number': str(page),
+                            'coordinates': coordinates,
+                            'Section_Type': section_type
+                        }
+                    }
+                    list1.append(dict1)
+                else:
+                    print("Coordinates not found for reference number:", reference_id[i])
 
-    for block in textract_output['Blocks']:
-        if block['BlockType'] in ['WORD', 'LINE'] and block['Page'] == page_num:
-            text = block['Text']
-            all_texts.append(block)
+                os.remove("AMU.json")
 
-            # Save the block data if it matches the search string
-            if text == search_string:
-                search_string_data = block
+    except Exception as e:
+        print('An error occurred:', e)
 
-    if search_string_data is None:
-        print(f'Search string "{search_string}" not found on page {page_num}.')
-        return None, None, None
+    tuple_dict = (list1,)
+    return tuple_dict
 
-    left_range = search_string_data['Geometry']['BoundingBox']['Left'] * left_percent
-    above_range = search_string_data['Geometry']['BoundingBox']['Top'] * above_percent
-    below_range = (1 - search_string_data['Geometry']['BoundingBox']['Top']) * below_percent
+# Example usage
+bucket_name = "your_bucket_name"
+json_path = "path_to_your_json_file"
+reference_numbers = ["ABC12345", "DEF67890"]
 
-    left_texts = [text_block['Text'] for text_block in all_texts
-                  if text_block['Geometry']['BoundingBox']['Left'] < search_string_data['Geometry']['BoundingBox']['Left']
-                  and text_block['Geometry']['BoundingBox']['Left'] > search_string_data['Geometry']['BoundingBox']['Left'] - left_range]
-
-    above_texts = [text_block['Text'] for text_block in all_texts
-                   if text_block['Geometry']['BoundingBox']['Top'] < search_string_data['Geometry']['BoundingBox']['Top']
-                   and text_block['Geometry']['BoundingBox']['Top'] > search_string_data['Geometry']['BoundingBox']['Top'] - above_range]
-
-    below_texts = [text_block['Text'] for text_block in all_texts
-                   if text_block['Geometry']['BoundingBox']['Top'] > search_string_data['Geometry']['BoundingBox']['Top']
-                   and text_block['Geometry']['BoundingBox']['Top'] < search_string_data['Geometry']['BoundingBox']['Top'] + below_range]
-
-    return left_texts, above_texts, below_texts
-
-file_path = 'your_json_file.json'  # Replace this with your file path
-search_string = 'YourSearchString'  # Replace this with your search string
-page_num = 2  # Replace this with your desired page number
-
-left_texts, above_texts, below_texts = get_text_near_search_string(file_path, search_string, page_num, 0.3, 0.3, 0.3)
-print(f'Texts to the left of "{search_string}" on page {page_num}: {left_texts}')
-print(f'Texts above "{search_string}" on page {page_num}: {above_texts}')
-print(f'Texts below "{search_string}" on page {page_num}: {below_texts}')
+result = final_fn(bucket_name, json_path, reference_numbers)
+print(result)
