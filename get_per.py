@@ -1,5 +1,54 @@
 import boto3
 import json
+import re
+
+# Create an S3 client
+s3 = boto3.client('s3')
+
+# The name of the bucket and key of the file
+bucket_name = 'mybucket'
+key = 'folder/subfolder/myfile.json'
+
+def get_coordinates(json_content, search_strings, page_num):
+    for search_string in search_strings:
+        try:
+            found = False
+            # Create a pattern with optional spaces between each character
+            pattern = " *".join(search_string)
+            for block in json_content['Blocks']:
+                if block['BlockType'] in ['LINE', 'WORD'] and block.get('Page', None) == page_num:
+                    if re.search(pattern, block['Text'], re.IGNORECASE):
+                        print(f'Found the search string "{search_string}" in the document.')
+                        print(f'Coordinates: {block["Geometry"]["BoundingBox"]}')
+                        found = True
+                        break
+            if not found:
+                print(f'Search string "{search_string}" not found in the document.')
+        except Exception as e:
+            print(f'Error occurred while processing search string "{search_string}": {e}')
+
+# Retrieve the file content
+response = s3.get_object(Bucket=bucket_name, Key=key)
+file_content = response['Body'].read().decode('utf-8')
+
+# Parse the JSON file content
+json_content = json.loads(file_content)
+
+# List of search strings
+search_strings = ['SearchString1', 'SearchString2', 'SearchString3']  # Replace these with your search strings
+
+# Specify the page number
+page_num = 1  # Replace this with your page number
+
+get_coordinates(json_content, search_strings, page_num)
+
+
+
+
+
+
+import boto3
+import json
 
 # Create an S3 client
 s3 = boto3.client('s3')
