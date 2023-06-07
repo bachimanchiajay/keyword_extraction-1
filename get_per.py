@@ -17,6 +17,44 @@ json_content = json.loads(file_content)
 
 # List of search strings
 search_strings = ['SearchString1', 'SearchString2', 'SearchString3']  # Replace these with your search strings
+
+# Perform the search
+for search_string in search_strings:
+    found = False
+    for block in json_content['Blocks']:
+        if block['BlockType'] in ['LINE', 'WORD']:
+            # Remove spaces from the block text
+            block_text = block['Text'].replace(" ", "")
+            if search_string in block_text:
+                print(f'Found the search string "{search_string}" in the document.')
+                print(f'Coordinates: {block["Geometry"]["BoundingBox"]}')
+                found = True
+                break
+    if not found:
+        print(f'Search string "{search_string}" not found in the document.')
+
+
+
+
+import boto3
+import json
+
+# Create an S3 client
+s3 = boto3.client('s3')
+
+# The name of the bucket and key of the file
+bucket_name = 'mybucket'
+key = 'folder/subfolder/myfile.json'
+
+# Retrieve the file content
+response = s3.get_object(Bucket=bucket_name, Key=key)
+file_content = response['Body'].read().decode('utf-8')
+
+# Parse the JSON file content
+json_content = json.loads(file_content)
+
+# List of search strings
+search_strings = ['SearchString1', 'SearchString2', 'SearchString3']  # Replace these with your search strings
 # Add spaces between characters in the search strings
 search_strings_spaced = [" ".join(list(search_string)) for search_string in search_strings]
 
