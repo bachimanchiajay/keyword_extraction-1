@@ -1,3 +1,41 @@
+import boto3
+import json
+
+def find_coordinates(bucket_name, key, search_string):
+    s3 = boto3.client('s3')
+    response = s3.get_object(Bucket=bucket_name, Key=key)
+    content = response['Body'].read().decode('utf-8')
+    data = json.loads(content)
+
+    blocks = data["Blocks"]
+
+    for block in blocks:
+        if block["BlockType"] == "WORD" and block["Text"] == search_string:
+            geometry = block["Geometry"]
+            bounding_box = geometry["BoundingBox"]
+            left = bounding_box["Left"]
+            top = bounding_box["Top"]
+            width = bounding_box["Width"]
+            height = bounding_box["Height"]
+
+            return (left, top, width, height)
+
+    return None
+
+# Example usage
+bucket = "your-bucket-name"
+key = "path/to/textract.json"
+search_string = "example with spaces"
+
+coordinates = find_coordinates(bucket, key, search_string)
+if coordinates:
+    left, top, width, height = coordinates
+    print(f"Coordinates: Left={left}, Top={top}, Width={width}, Height={height}")
+else:
+    print("Search string not found.")
+
+
+
 def get_coordinates_of_string(bucket, file_path, search_string):
     s3_connection = boto3.resource("s3")
     client = boto3.client('s3')
