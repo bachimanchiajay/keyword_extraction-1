@@ -1,3 +1,5 @@
+import re
+
 def riskCodeAndPerc(text, percentage, riskCodeList):
     # Check to the left of the percentage for a risk code
     for riskCode in riskCodeList:
@@ -43,6 +45,3 @@ def riskCodeAndPercentageExtractor(text, riskCodeList, tok):
             if i in riskCodeList:
                 riskCodeData.append(1)
         return [riskCodeData, None]
-
-# Testing the function with the provided text again
-riskCodeAndPercentageExtractor("ALLOCATION OF PREMIUM TO CODING: 7T 1% CY 98% AG 1% NB 1% REGULATORY CLIENT", ["7T", "CY", "AG", "NB"], "CODING:")
