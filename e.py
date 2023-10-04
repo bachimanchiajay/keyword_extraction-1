@@ -1,3 +1,52 @@
+def riskCodeAndPercentageExtractor_continuous(text, riskCodeList, tok):
+    if text:
+        token = tok.lower()
+        x = re.findall(r'[\d\. \d\%]*%+', text)
+        riskCodeData = []
+        used_codes = []  # To keep track of risk codes that have been associated
+        if x:
+            riskCode = []
+            riskPercentage = []
+            ind = text.lower().find(token)
+            newText = text[ind+len(token)+1:]
+            for i in x:
+                value = riskCodeAndPerc_improved(newText, i.strip(), riskCodeList, used_codes)
+                if value:
+                    riskCode.append(value[0])
+                    riskPercentage.append(value[1])
+                    # Remove the identified risk code and percentage from the newText
+                    pattern = re.escape(value[0]) + r'.*?' + re.escape(value[1])
+                    newText = re.sub(pattern, '', newText, count=1).strip()
+            return [riskCode, riskPercentage]
+        else:
+            text = re.sub('[^A-Za-z0-9%.]+', " ", text)
+            ind = text.lower().find(token)
+            newText = text[ind+len(token):]
+            newText = newText.split()
+            for i in newText:
+                if i in riskCodeList:
+                    riskCodeData.append(i)
+            return [riskCodeData, None]
+
+# Running the continuously updated version
+continuous_result = riskCodeAndPercentageExtractor_continuous(text, riskCodeList, token)
+continuous_result
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import boto3
 import pandas as pd
 
