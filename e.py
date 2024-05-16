@@ -1,47 +1,29 @@
-import re
+import subprocess
+import os
+import boto3
 
-def riskCodeAndPerc(text, percentage, riskCodeList):
-    # Check to the left of the percentage for a risk code
-    for riskCode in riskCodeList:
-        pattern_left = riskCode + r"\s*" + percentage
-        pattern_right = percentage + r"\s*" + riskCode
-        if re.search(pattern_left, text):
-            return (riskCode, percentage)
-        elif re.search(pattern_right, text):
-            return (riskCode, percentage)
-    return None
+def convert_doc_to_docx(input_bucket, input_key):
+    s3_client = boto3.client('s3')
+    
+    # Download the file from S3
+    tmp_file_path = f"/tmp/{os.path.basename(input_key)}"
+    s3_client.download_file(input_bucket, input_key, tmp_file_path)
+    
+    # Define the output file path
+    output_docx_path = f"{tmp_file_path.rsplit('.', 1)[0]}.docx"
+    
+    # Pandoc command to convert doc to docx
+    command = ['pandoc', '-o', output_docx_path, tmp_file_path]
+    
+    # Execute the command
+    try:
+        subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print(f"File converted successfully and saved as {output_docx_path}")
+        
+        # Optionally upload the converted file back to S3
+        # s3_client.upload_file(output_docx_path, input_bucket, output_docx_path)
+    except subprocess.CalledProcessError as e:
+        raise Exception(f"Failed to convert DOC to DOCX: {e.stderr.decode()}")
 
-def riskCodeAndPercentageExtractor(text, riskCodeList, tok):
-    if not text:
-        return [None, None]
-
-    token = tok.lower()
-    x = re.findall(r'[\d\. \d\%]*%+', text)
-    riskCodeData = []
-    riskcode = []
-    riskPercentage = []
-
-    if x:
-        ind = text.lower().find(token)
-        newText = text[ind+len(token)+1:]
-
-        for percentage in x:
-            value = riskCodeAndPerc(newText, percentage, riskCodeList)
-            if value:
-                riskcode.append(value[0])
-                riskPercentage.append(value[1])
-                # Remove the identified risk code and percentage from newText
-                pattern = re.escape(value[0]) + r"\s*" + re.escape(value[1])  # Escaping in case of special characters
-                newText = re.sub(pattern, "", newText).strip()
-
-        return [riskcode, riskPercentage]
-
-    else:
-        text = re.sub('[^A-Za-z0-9%.]+', " ", text)
-        ind = text.lower().find(token)
-        newText = text[ind+len(token):]
-        newText = newText.split()
-        for i in newText:
-            if i in riskCodeList:
-                riskCodeData.append(1)
-        return [riskCodeData, None]
+# Example usage
+convert_doc_to_docx("your-bucket-name", "path/to/your/document.doc")
