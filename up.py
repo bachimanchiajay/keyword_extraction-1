@@ -1,145 +1,112 @@
-import fitz
-from PIL import Image
-from layoutparser import OCR, Document
+import fitz  # PyMuPDF
+import boto3
+import json
+import mysql.connector
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from sentence_transformers import SentenceTransformer, util
 
-# Load the PDF file using PyMuPDF
-pdf_path = 'path/to/pdf/file.pdf'
-doc = fitz.open(pdf_path)
+def extract_text_from_pdf(pdf_path):
+    doc = fitz.open(pdf_path)
+    text = ""
+    for page in doc:
+        text += page.get_text()
+    return text
 
-# Convert each page in the PDF file to a JPEG image
-for page_number in range(doc.page_count):
-    page = doc[page_number]
-    zoom = 2.0
-    rotation = 0
-    trans = fitz.Matrix(zoom, zoom).preRotate(rotation)
-    pix = page.getPixmap(matrix=trans, alpha=False)
-    image = Image.frombytes('RGB', [pix.width, pix.height], pix.samples)
-    image_path = f'page_{page_number+1}.jpg'
-    image.save(image_path)
+def extract_metadata_from_pdf(pdf_path):
+    doc = fitz.open(pdf_path)
+    metadata = doc.metadata
+    return metadata
 
-    # Extract text and layout information using OCR
-    ocr_agent = OCR()
-    layout = ocr_agent.detect(image_path, return_response=True)
+def chunk_text_with_langchain(text, chunk_size=1000, chunk_overlap=200):
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap
+    )
+    chunks = text_splitter.split_text(text)
+    return chunks
 
-    # Convert the layout information to a LayoutParser document
-    document = Document(layout=layout, page_size=(image.width, image.height))
+def generate_embeddings(chunks):
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    embeddings = model.encode(chunks, convert_to_tensor=True)
+    return embeddings
 
-    # Add the text to the LayoutParser document
-    text = ocr_agent.detect(image_path)
-    page_layout = layout[0]
-    block = page_layout['layout']
-    text_block = block.filter_blocks(lambda b, _: b['type'] == 'text')
-    text_block.set(text=text, type='text')
+def save_chunks_to_s3(chunks, docu_id):
+    s3_client = boto3.client('s3')
+    bucket_name = 'your-bucket-name'
+    for i, chunk in enumerate(chunks):
+        s3_key = f'specific-folder/{docu_id}_chunk_{i}.json'
+        s3_client.put_object(
+            Bucket=bucket_name,
+            Key=s3_key,
+            Body=json.dumps({"chunk": chunk}),
+            ContentType='application/json'
+        )
+        print(f"Chunk {i} saved to S3")
 
-    # Print the text and layout information for the page
-    print(f'Page {page_number + 1}:')
-    print(f'Text: {text}')
-    print(f'Layout: {page_layout}')
+def save_metadata_to_mysql(metadata, docu_id):
+    try:
+        connection = mysql.connector.connect(
+            host='your-mysql-host',
+            user='your-mysql-username',
+            password='your-mysql-password',
+            database='your-database-name'
+        )
+        cursor = connection.cursor()
+        sql = "INSERT INTO metadata (docu_id, metadata) VALUES (%s, %s)"
+        cursor.execute(sql, (docu_id, json.dumps(metadata)))
+        connection.commit()
+        print("Metadata inserted into MySQL")
+    except Exception as e:
+        print(str(e))
+    finally:
+        cursor.close()
+        connection.close()
 
+def save_embeddings_to_vector_db(embeddings, docu_id):
+    # Placeholder function to save embeddings to a vector database
+    # Implement this function based on your vector database
+    pass
 
+def retrieve_embeddings_from_vector_db(docu_id):
+    # Placeholder function to retrieve embeddings from a vector database
+    # Implement this function based on your vector database
+    pass
 
-import fitz
-import re
+def compare_documents(main_doc_embeddings, uploaded_doc_embeddings):
+    similarities = util.pytorch_cos_sim(main_doc_embeddings, uploaded_doc_embeddings)
+    return similarities
 
-# Open the PDF file
-doc = fitz.open('path/to/pdf/file.pdf')
+def process_pdf(pdf_path, docu_id):
+    try:
+        text = extract_text_from_pdf(pdf_path)
+        metadata = extract_metadata_from_pdf(pdf_path)
+        chunks = chunk_text_with_langchain(text)
+        embeddings = generate_embeddings(chunks)
+        save_chunks_to_s3(chunks, docu_id)
+        save_metadata_to_mysql(metadata, docu_id)
+        save_embeddings_to_vector_db(embeddings, docu_id)
+        print("All data saved successfully")
+        return 'Success'
+    except Exception as e:
+        print(str(e))
+        return 'Error in processing PDF'
 
-# Define the regular expression pattern for key-value pairs
-pattern = r'(\w+)\s*:\s*(.+)'
-
-# Iterate over each page in the document
-for page_number in range(doc.page_count):
-    # Get the page object
-    page = doc[page_number]
-
-    # Get the text on the page
-    text = page.get_text()
-
-    # Search for key-value pairs in the text
-    matches = re.findall(pattern, text)
-
-    # Print the key-value pairs
-    for match in matches:
-        key = match[0]
-        value = match[1]
-        print(f'{key}: {value}')
-
-        
-        import textract
-
-# Define the path to the PDF file
-pdf_path = "path/to/pdf/file.pdf"
-
-# Extract the text from the PDF file using Textract
-text = textract.process(pdf_path)
-
-# Split the text into lines
-lines = text.decode("utf-8").splitlines()
-
-# Initialize an empty dictionary to store the form data
-form_data = {}
-
-# Iterate over each line in the text
-for line in lines:
-    # Check if the line contains a key-value pair
-    if ":" in line:
-        # Split the line into key and value
-        key, value = line.split(":", 1)
-
-        # Strip leading and trailing whitespace from the key and value
-        key = key.strip()
-        value = value.strip()
-
-        # Add the key-value pair to the form data dictionary
-        form_data[key] = value
-
-# Print the extracted form data
-print(form_data)
-
-
-import fitz
-from layoutparser import OCR, Document
-
-# Load the PDF file using PyMuPDF
-pdf_path = 'path/to/pdf/file.pdf'
-doc = fitz.open(pdf_path)
-
-# Extract text and layout information using OCR
-ocr_agent = OCR()
-layout = ocr_agent.detect(doc, return_response=True)
-
-# Convert the layout information to a LayoutParser document
-document = Document(layout=layout, page_size=(doc[0].rect.width, doc[0].rect.height))
-
-# Print the text and layout information for each page in the document
-for page_number in range(doc.page_count):
-    # Get the page object
-    page = doc[page_number]
-
-    # Get the text on the page using OCR
-    text = ocr_agent.detect(page)
-
-    # Add the text to the LayoutParser document
-    page_layout = layout[page_number]
-    block = page_layout['layout']
-    text_block = block.filter_blocks(lambda b, _: b['type'] == 'text')
-    text_block.set(text=text, type='text')
-
-    # Print the text and layout information for the page
-    print(f'Page {page_number + 1}:')
-    print(f'Text: {text}')
-    print(f'Layout: {page_layout}')
-
+def compare_main_and_uploaded_docs(main_doc_path, uploaded_doc_path):
+    main_docu_id = 'main_document_id'
+    uploaded_docu_id = 'uploaded_document_id'
     
-    from pdf2image import convert_from_path
+    process_pdf(main_doc_path, main_docu_id)
+    process_pdf(uploaded_doc_path, uploaded_docu_id)
+    
+    # Retrieve embeddings from vector database
+    main_doc_embeddings = retrieve_embeddings_from_vector_db(main_docu_id)
+    uploaded_doc_embeddings = retrieve_embeddings_from_vector_db(uploaded_docu_id)
+    
+    similarities = compare_documents(main_doc_embeddings, uploaded_doc_embeddings)
+    return similarities
 
-pdf_path = '/path/to/pdf/file.pdf'
-first_page = 1
-last_page = 3
-image_path_prefix = '/path/to/image/file'
-
-images = convert_from_path(pdf_path, first_page=first_page, last_page=last_page)
-
-for i, image in enumerate(images):
-    image_path = f"{image_path_prefix}_{i+1}.jpg"
-    image.save(image_path, 'JPEG')
+# Example usage
+main_doc_path = 'path/to/main_document.pdf'
+uploaded_doc_path = 'path/to/uploaded_document.pdf'
+similarities = compare_main_and_uploaded_docs(main_doc_path, uploaded_doc_path)
+print(similarities)
