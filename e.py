@@ -1,47 +1,15 @@
-import re
+System Message:
+"You are responsible for verifying output from the OCR agent. While verifying, you need to follow these rules:
 
-def riskCodeAndPerc(text, percentage, riskCodeList):
-    # Check to the left of the percentage for a risk code
-    for riskCode in riskCodeList:
-        pattern_left = riskCode + r"\s*" + percentage
-        pattern_right = percentage + r"\s*" + riskCode
-        if re.search(pattern_left, text):
-            return (riskCode, percentage)
-        elif re.search(pattern_right, text):
-            return (riskCode, percentage)
-    return None
+Verify that the length of the extracted VIN number is exactly 17 characters long, excluding any extra whitespace.
+Verify that the extracted state name matches a valid code present in the {STATES_CODES} dictionary.
+If both conditions are met, set the match status to "Success"; otherwise, set it to "Fail."
+If the match status is "Fail," provide a reason for the failure.
 
-def riskCodeAndPercentageExtractor(text, riskCodeList, tok):
-    if not text:
-        return [None, None]
+Output Format:
 
-    token = tok.lower()
-    x = re.findall(r'[\d\. \d\%]*%+', text)
-    riskCodeData = []
-    riskcode = []
-    riskPercentage = []
-
-    if x:
-        ind = text.lower().find(token)
-        newText = text[ind+len(token)+1:]
-
-        for percentage in x:
-            value = riskCodeAndPerc(newText, percentage, riskCodeList)
-            if value:
-                riskcode.append(value[0])
-                riskPercentage.append(value[1])
-                # Remove the identified risk code and percentage from newText
-                pattern = re.escape(value[0]) + r"\s*" + re.escape(value[1])  # Escaping in case of special characters
-                newText = re.sub(pattern, "", newText).strip()
-
-        return [riskcode, riskPercentage]
-
-    else:
-        text = re.sub('[^A-Za-z0-9%.]+', " ", text)
-        ind = text.lower().find(token)
-        newText = text[ind+len(token):]
-        newText = newText.split()
-        for i in newText:
-            if i in riskCodeList:
-                riskCodeData.append(1)
-        return [riskCodeData, None]
+VIN: [value]
+State Code: [value]
+Match Status: [Success/Fail]
+Match Status Reason: [Detail the reason for failure]
+Note: End the message with the keyword "TERMINATE."
